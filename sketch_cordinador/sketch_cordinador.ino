@@ -12,10 +12,11 @@ const char hostname[] = "so7.infinitysrv.com"; // Dominio donde se aloja MySQL
 const char username[] = "tapsisa1_arduino";    // Username de MySQL
 const char password[] = "192837465!";          // Password de Mysql
 
-const char arduino_id[] = "051-edj-bn1";        // valor del campo 'gasto.id' en 'tapsisa1_hidroflu.gasto'
+
 const char insert_sql[] = "insert into tapsisa1_hidroflu.gasto(gast,id) values ('%s','%s')";  // sql para realizar el INSERT
 
-char compile_sql[80] = {0};
+char compile_sql[80]  = {0};
+char *arduino_id   = nullptr;        // valor del campo 'gasto.id' en 'tapsisa1_hidroflu.gasto'
 
 IPAddress         server_ip;                // IP a la que apunta el dominio de MySQL
 EthernetClient    client;                   // Cliente HTTP
@@ -36,16 +37,12 @@ void setup() {
   SERIAL_PORT.begin(38400);
   //while(!SERIAL_PORT){;}
   delay(1000);
-   
-  SERIAL_PORT.println("setup()");
-  
-  
 
 
-  SERIAL_PORT.print("Ethernet: ");
+  SERIAL_PORT.print(F("Ethernet: "));
   if( Ethernet.begin(mac_addr) == 0 )
   {
-    SERIAL_PORT.println("BAD");
+    SERIAL_PORT.println("NO");
   } else {
     SERIAL_PORT.println("OK");
   }
@@ -89,7 +86,12 @@ void loop() {
       build_insert_sql( gasto );
       
       
-      exec_insert_sql();
+      if ( exec_insert_sql() )
+      {
+        SERIAL_PORT.println(F("Datos enviados correctamente"));
+      } else {
+        SERIAL_PORT.println(F("No se pudo enviar los datos"));
+      }
     }
     
     
@@ -99,12 +101,12 @@ void loop() {
 
 bool mysql_connect()
 {
-  SERIAL_PORT.print("MySQL: ");
+  SERIAL_PORT.print(F("Conexion a MySQL: "));
   if (conn.connect(server_ip, 3306, username, password)) {
     SERIAL_PORT.println("OK");
     return true;
   } else {
-    SERIAL_PORT.println("BAD");
+    SERIAL_PORT.println("NO");
     return false;
   }
 }
@@ -114,38 +116,47 @@ void build_insert_sql( double &gasto )
   char strf[8] = {0};
   dtostrf( gasto, 0, 2, strf );
   sprintf( compile_sql, insert_sql, strf, arduino_id );
+  Serial.println( compile_sql );
 }
 
 bool exec_insert_sql()
 {
-  if (mysql_connect()) {
-    delay(1000);
+  int tries = 3;
 
+  while( tries-- ) // Intenta 3 veces
+  {
     
+    if( mysql_connect() ) // Abre una nueva conexión a MySQL
+    {
+      delay(1000);
 
-    // Initiate the query class instance
-    MySQL_Cursor *cur_mem = new MySQL_Cursor(&conn);
-  
-    SERIAL_PORT.println(compile_sql);
-    // Execute the query
-    cur_mem->execute(compile_sql);
+      // Inicializa un cursor
+      MySQL_Cursor *cur_mem = new MySQL_Cursor(&conn);
     
-  
-    delete cur_mem;
-    
+      //SERIAL_PORT.println(compile_sql);
+      
+      // Execute the query
+      cur_mem->execute(compile_sql);
+      
+      // Elimina el cursor para liberar memoria
+      delete cur_mem;
 
+      return true;
+    }
   }
+
+  return false;
 }
 
 boolean fetch_gasto_from_json( char *json, double &gasto )
 {
-  StaticJsonBuffer< limit_input + 5> jsonBuffer;
+  StaticJsonBuffer< limit_input + 10> jsonBuffer;
 
   JsonObject& root = jsonBuffer.parseObject(json);
 
   
   if (!root.success()) {
-    SERIAL_PORT.println("JSON: BAD");
+    SERIAL_PORT.println(F("ERROR DE SINTAXIS"));
     return false;
   }
 
@@ -155,8 +166,11 @@ boolean fetch_gasto_from_json( char *json, double &gasto )
     // Obtiene el valor del campo "gasto" y lo devuelve
     gasto = root["gasto"].as<double>();
 
-    // Confirma la ejecución exitosa
-    return true;
+    // Obtiene el id del arduino
+    arduino_id = root["uid"].as<char*>();
+
+    // Devuelve true en caso de obtener el id del arduino
+    return arduino_id != nullptr;
   }
 
   return false;
