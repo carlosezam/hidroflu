@@ -14,6 +14,7 @@ const char password[] = "192837465!";          // Password de Mysql
 
 
 const char insert_sql[] = "insert into tapsisa1_hidroflu.gasto(gast,id) values ('%s','%s')";  // cadena de formato SQL para realizar el INSERT
+//sprintf(compile_sql, insert_sql, gasto,arduino_id);
 
 char compile_sql[80]  = {0};      // buffer para almacenar el 'SQL' ya construido
 
@@ -147,6 +148,7 @@ void build_insert_sql( )
 {
   char strf[8] = {0};                                   // Bufer donde se alamcenará la variable gasto pero como string
   dtostrf( gasto, 0, 2, strf );                         // genera un string a partir de la variable gasto con 2 posiciones decimales
+  
   sprintf( compile_sql, insert_sql, strf, arduino_id ); // contruye la consulta
   SERIAL_PORT.println( compile_sql );                   // imprime con modtivos de depuración
 }

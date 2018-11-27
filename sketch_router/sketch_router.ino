@@ -37,9 +37,9 @@ float flow_Lmin;
 const char arduino_id[] = "051-edj-bn1";        // valor del campo 'gasto.id' en 'tapsisa1_hidroflu.gasto'
 
 long ultimo_muestreo = 0;
-long tiempo_muestreo_gasto = 15 * (1000);  // Tiempo en milisegundos entre cada envio de información al servidor
+long tiempo_muestreo_gasto = 10 * (1000);  // Tiempo en milisegundos entre cada envio de información al servidor
 
-float tope_gasto_agua = 50;      // Cantidad de agua en Litros antes de hacer el corte del suministro
+//float tope_gasto_agua = 50;      // Cantidad de agua en Litros antes de hacer el corte del suministro
 
 
 /*
@@ -87,8 +87,10 @@ void setup()
   }
 
   
- 
+  if (rtc.lostPower()) {
   rtc.adjust(DateTime(__DATE__,__TIME__)); //Toma de referencia la fecha, hora y día del ordenador. //Solo se carga una vez.
+  Serial.println("lostpower");
+  }
   LCD.clear(); //Limpieza del cache del LCD.
   LCD.backlight(); //Encendido de iluminación del LCD.
   attachInterrupt(digitalPinToInterrupt(1), contadorPulsos,RISING);
@@ -109,7 +111,7 @@ void loop()
  
  //sumaVolumen(flow_Lmin);
  sumaVolumen(60);
- Serial.print("volumen: "); Serial.println(volumen);
+ //Serial.print("volumen: "); Serial.println(volumen);
  lcd_print_info();
 
  
@@ -140,7 +142,7 @@ void insert_gasto()
   dtostrf(volumen,5,2,fstr);
   
   sprintf( buff,                            // buffer donde se va a guardar el string
-    "{cmd:\"insert\",gasto:%s,uid:\"%s\"}", fstr, arduino_id // obtiene la hora, minutos y segundos
+    "{cmd:\"psh-gasto\",dat:%s,uid:\"%s\"}", fstr, arduino_id // obtiene la hora, minutos y segundos
   );
 
    Serial.print(buff);
