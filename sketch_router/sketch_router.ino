@@ -28,7 +28,7 @@ const float factorK = 7.5;    // Factor K de conversión entre la frecuencia y e
 
 volatile int pulsoContador;   // Contador de pulsos.
 float frecuencia;             // Frecuencia del sensor YFS201
-long t = 0;                   //Tiempo.
+unsigned long t = 0;                   //Tiempo.
 
 float volumen = 0;            // Volumen. Almacena la cantidad de agua acumulada. 
 float flow_Lmin;
@@ -36,8 +36,8 @@ float flow_Lmin;
 
 const char arduino_id[] = "051-edj-bn1";        // valor del campo 'gasto.id' en 'tapsisa1_hidroflu.gasto'
 
-long ultimo_muestreo = 0;
-long tiempo_muestreo_gasto = 10 * (1000);  // Tiempo en milisegundos entre cada envio de información al servidor
+unsigned long ultimo_muestreo = 0;
+unsigned long tiempo_muestreo_gasto = 60;  // Tiempo en minutos entre cada envio de información al servidor
 
 //float tope_gasto_agua = 50;      // Cantidad de agua en Litros antes de hacer el corte del suministro
 
@@ -93,13 +93,15 @@ void setup()
   }
   LCD.clear(); //Limpieza del cache del LCD.
   LCD.backlight(); //Encendido de iluminación del LCD.
-  attachInterrupt(digitalPinToInterrupt(1), contadorPulsos,RISING);
+  attachInterrupt(digitalPinToInterrupt(YFS201), contadorPulsos,RISING);
+  
   t = millis();
 
   ultimo_muestreo = millis();
+  
 }
 
-
+unsigned long m = 0;
 
 void loop()
 {
@@ -109,14 +111,17 @@ void loop()
  frecuencia = obtenerFrecuencia(); //Obtenciòn de la frecuencia (Hz).
  flow_Lmin = frecuencia / factorK;
  
- //sumaVolumen(flow_Lmin);
- sumaVolumen(60);
- //Serial.print("volumen: "); Serial.println(volumen);
- lcd_print_info();
-
+  sumaVolumen(flow_Lmin);
+  //sumaVolumen(60);
+  //Serial.print("volumen: "); Serial.println(volumen);
+  lcd_print_info();
  
-  if (millis() - ultimo_muestreo > tiempo_muestreo_gasto) {
-    insert_gasto();
+  m = (millis() - ultimo_muestreo) / 60000;
+  
+  //Serial.println( s );
+  if ( m >= tiempo_muestreo_gasto ) {
+    
+    psh_gasto();
     
     
     ultimo_muestreo = millis();
@@ -130,7 +135,7 @@ void loop()
 
 }
 
-void insert_gasto()
+void psh_gasto()
 {
   DateTime now = rtc.now();  // Instancia del reloj
 
@@ -170,6 +175,10 @@ void lcd_print_info()
   LCD.setCursor(0, 0);                      // Posiciona el cursor en el LCD
   LCD.print(buff);                          // Imprime el string
 
+  unsigned long tempo = (tiempo_muestreo_gasto - m) > 0 ? (tiempo_muestreo_gasto - m) : 0;
+  sprintf( buff, "Envio en: %d min.", tempo );  // Crea el string a mostrar en el LCD
+  LCD.setCursor(0, 1);                        // Posiciona el cursor en el LCD
+  LCD.print(buff);                            // Imprime el string
 
   dtostrf(flow_Lmin,5,2,fstr);                // Da formato a la variable flow_Lmin
   sprintf( buff, "Caudal:  %s L/min", fstr);  // Crea el string a mostrar en el LCD
